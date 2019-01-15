@@ -1,0 +1,59 @@
+---
+title: "CAS_LossReserve_DB"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Glenn G. Meyers, PhD, FCAS
+Peng Shi, PhD, ASA
+
+Please direct all comments to Glenn Meyers at ggmeyers@metrocast.net
+
+Purpose
+Our goal is to prepare a clean and nice data set of loss triangles that could be used for claims reserving studies. The data includes major personal and commercial lines of business from U.S. property casualty insurers. The claims data comes from Schedule P – Analysis of Losses and Loss Expenses in the National Association of Insurance Commissioners (NAIC) database.
+
+We have obtained permission from the NAIC to make this data available to all interested researchers on the CAS website.
+
+Description of Schedule P
+NAIC Schedule P contains information on claims for major personal and commercial lines for all property-casualty insurers that write business in US. Some parts have sections that separate occurrence from claims made coverages. The six lines included in this database are: (1) private passenger auto liability/medical; (2) commercial auto/truck liability/medical; (3) workers’ compensation; (4) medical malpractice – claims made; (5) other liability – occurrence; (6) product liability – occurrence.
+
+For each of the above six lines, the variables included in the dataset were pulled from four different parts in Schedule P.
+Part 1 - Earned premium and some summary loss data
+Part 2 - Incurred net loss triangles
+Part 3 - Paid net loss triangles
+Part 4 - Bulk and IBNR reserves on net losses and cost containment expenses
+
+Data Preparation
+The triangles consist of losses net of reinsurance, and quite often insurer groups have mutual reinsurance arrangements between the companies within the group. Consequently, we focused on records for single entities in the data preparation, be they insurer groups or true single insurers. The process of data preparation took three steps:
+
+Step I: Pull triangle data from Schedule P of year 1997. Each triangle includes claims of 10 accident years (1988-1997) and 10 development lags. This data are the training data that can be used for model development.
+Step II: Square the triangles from Schedule P of year 1997 with outcomes from Schedule P of subsequent years. Specifically, the data for accident year 1989 was pulled from Schedule P of year 1998, the data for accident year 1990 was pulled from Schedule P of year 1999, ……, the data for accident year 1997 was pulled from Schedule P of year 2006. The data in the lower triangles can be used for model validation purposes.
+Step III: Sampling. We performed preliminary analysis to ensure the quality of the dataset. An insurer  was retained in the final dataset if the following criteria are satisfied: (1) the insurer is available in both Schedule P of year 1997 and subsequent years; (2) the observations (10 accident years and 10 development lags) are complete for the insurer; (3) the claims from Schedule P of year 1997 match those from subsequent years; (4) Net premiums written are not zero for all years.
+Final Product
+The final product is a data set that contains run-off triangles of six lines of business for all U.S. property casualty insurers. The triangle data correspond to claims of accident year 1988 – 1997 with 10 years development lag. Both upper and lower triangles are included so that one could use the data to develop a model and then test its performance retrospectively. A list of variables in the data is as follows:
+
+--------------VARIABLE DESCRIPTION---------------
+GRCODE NAIC company code (including insurer groups and single insurers)
+GRNAME NAIC company name (including insurer groups and single insurers)
+AccidentYear Accident year(1988 to 1997) 
+DevelopmentYear Development year (1988 to 1997) 
+DevelopmentLag Development year (AY-1987 + DY-1987 - 1) 
+IncurLoss_ Incurred losses and allocated expenses reported at year end 
+CumPaidLoss_ Cumulative paid losses and allocated expenses at year end 
+BulkLoss_ Bulk and IBNR reserves on net losses and defense and cost containment expenses reported at year end
+PostedReserve97_ Posted reserves in year 1997 taken from the Underwriting and Investment Exhibit – Part 2A, including net losses unpaid and unpaid loss adjustment expenses
+EarnedPremDIR_ Premiums earned at incurral year - direct and assumed
+EarnedPremCeded_ Premiums earned at incurral year - ceded 
+EarnedPremNet_ Premiums earned at incurral year - net 
+Single 1 indicates a single entity, 0 indicates a group insurer
+
+"_"	REFERS TO LINES OF BUSINESS
+B Private passenger auto liability/medical 
+C commercial auto/truck liability/medical 
+D Workers' compensation 
+F2 Medical malpractice - Claims made
+H1 Other liability - Occurrence
+R1 Products liability - Occurrence

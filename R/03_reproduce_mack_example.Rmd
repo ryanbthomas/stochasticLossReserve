@@ -1,0 +1,87 @@
+---
+title: "Mack Model Comparison"
+output: html_notebook
+---
+
+Trying to reproduce the results of Glenn Myers Stochastic Loss Reserving Mack Model comparison
+
+```{r}
+suppressPackageStartupMessages({
+    library(ChainLadder)
+    library(dplyr)
+})
+
+inc_loss <- readRDS(glue::glue("{here::here()}/cache/ill_incloss.rds"))
+
+# need to separate "real" data from values in checking
+# ay + lag <= 1998 (ay run from 1988 to 1997 with 10 years of lags)
+
+known_loss <- inc_loss %>%
+    mutate(ay = as.numeric(ay)) %>%
+    filter(ay + lag <= 1998)
+
+
+known_loss_triangle <- as.triangle(known_loss,
+                                   origin = "lag", 
+                                   dev = "ay", 
+                                   value = "vals")
+
+known_loss_triangle
+```
+
+
+So let's run the mack model from chainladder package
+
+My understanding of the Mack model is that we're using triangle to estimate 
+distribution of expected losses developemnt.
+
+
+```{r}
+(mack_estimate <- MackChainLadder(known_loss_triangle))
+```
+
+I want to reproduce table 4 from the paper
+
+```{r}
+
+results_tbl <- tibble::tibble(
+    lag = seq_along(mack_estimate$f),
+    devfactor = rev(cumprod(rev(mack_estimate$f))),
+    sd = rev(mack_estimate$Mack.S.E[, 10])
+)
+
+final_vals <- filter(inc_loss, lag == 10) %>%
+    mutate(ay = as.numeric(ay)) %>%
+    select(ay, vals)
+
+ 
+
+table4 <- known_loss %>% 
+    filter(ay + lag == 1998) %>%
+    inner_join(results_tbl, by = "lag") %>%
+    inner_join(final_vals, by = "ay") %>%
+    mutate(mack_est = vals.x * devfactor, cv = sd / mack_est, ay = as.character(ay)) %>%
+    select(ay, mack_est, sd, cv, actual = vals.y) %>%
+    bind_rows(tibble(ay = "total", 
+                     mack_est = sum(.$mack_est), 
+                     sd = mack_estimate$Total.Mack.S.E,
+                     cv = sd / mack_est,
+                     actual = sum(.$actual))
+              )
+
+total_row <- table4[11, ]
+
+dist_cv <- total_row$sd /total_row$mack_est
+dist_mean <- total_row$mack_est
+useful_val <- dist_cv^2 + 1
+
+sd_log <- sqrt(log(useful_val))
+mean_log <- log(dist_mean) - 0.5 * log(useful_val)
+
+
+table4
+
+```
+
+And the percentile of the total row assuming lognormal as G.M. does is `r sprintf("%2.1f%%", plnorm(total_row$actual, meanlog = mean_log, sdlog = sd_log) * 100)`
+
