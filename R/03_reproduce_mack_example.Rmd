@@ -85,3 +85,11 @@ table4
 
 And the percentile of the total row assuming lognormal as G.M. does is `r sprintf("%2.1f%%", plnorm(total_row$actual, meanlog = mean_log, sdlog = sd_log) * 100)`
 
+An Idea.
+
+What happens when I use the broom package. An Error.
+
+```{r}
+mack_estimate %>% broom::tidy()
+```
+
