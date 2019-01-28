@@ -6,68 +6,55 @@ output: html_notebook
 Reproducing the validation of the Mack method from Meyees page 8 and 9.
 
 ```{r}
-suppressPackageStartupMessages(library(tidyverse))
-cache_path <- glue::glue("{here::here()}/cache")
-comauto <- readr::read_csv(glue::glue("{cache_path}/comauto_pos.csv"))
+suppressPackageStartupMessages({
+    library(tidyverse)
+    library(fs)
+})
+
+cache_path <- fs::path(here::here(), "cache")
+selected_groups <- readRDS(file =  fs::path(cache_path, "selected_groups.rds"))
+comauto <- readr::read_csv(fs::path(cache_path, "comauto_pos.csv"))
 ```
 
 
 ```{r}
-calc_mack_estimates <- function(x) {
-    x <- dplyr::rename(x, 
-                       ay = AccidentYear, 
-                       lag = DevelopmentLag, 
-                       incloss = IncurLoss_C)
-    
-    use_triangle <- ChainLadder::as.triangle(x,
-                                             origin = "lag", 
-                                             dev = "ay", 
-                                             value = "incloss")
-    
-    mack_estimate <- ChainLadder::MackChainLadder(use_triangle)
-    
-    results_tbl <- tibble::tibble(
-        lag = seq_along(mack_estimate$f),
-        devfactor = rev(cumprod(rev(mack_estimate$f))),
-        sd = rev(mack_estimate$Mack.S.E[, 10])
-    )
+path_to_utils <- glue::glue("{here::here()}/R/00_utils.R")
+source(path_to_utils)
+comm_auto_groups <- selected_groups %>% 
+    filter(lob == "commauto")
 
-    final_vals <- dplyr::filter(x, lag == 10) %>%
-        mutate(ay = as.numeric(ay)) %>%
-        select(ay, vals)
+suppressWarnings({
+    comm_auto_mack <- comauto %>%
+        filter(GRCODE %in% comm_auto_groups$grcode) %>%
+        split(.$GRCODE) %>%
+        purrr::map(purrr::safely(calc_mack_estimates))
+})
 
-    summary_tbl <- dplyr::filter(x, ay + lag == 1998) %>%
-        inner_join(results_tbl, by = "lag") %>%
-        inner_join(final_vals, by = "ay") %>%
-        mutate(mack_est = vals.x * devfactor, 
-               cv = sd / mack_est, ay = as.character(ay)) %>%
-        select(ay, mack_est, sd, cv, actual = vals.y)
-    
-    total_row <- dplyr::summarize(latest_vals, 
-                                  mack_est = sum(mack_est), 
-                                  actual = sum(actual)
-                                  ) %>%
-        dplyr::mutate(ay = "total", 
-                      sd = mack_estimate$Total.Mack.S.E, 
-                      cv = sd / mack_est) %>%
-        dplyr::select(ay, mack_est, sd, cv, actual)
-        
-    summary_tbl <- dplyr::bind_rows(summary_tbl, total_row)
+check_work <- comm_auto_mack %>% 
+    map_dbl( ~ is.null(.x$error)) %>% 
+    sum()
 
+results_to_test <- map_dfr(comm_auto_mack, ~ .x$result)
+```
 
-    dist_cv <- total_row$sd /total_row$mack_est
-    dist_mean <- total_row$mack_est
-    useful_val <- dist_cv^2 + 1
+I found `r check_work` out of 50 to be correct.
 
-    sd_log <- sqrt(log(useful_val))
-    mean_log <- log(dist_mean) - 0.5 * log(useful_val)
-    
-    percentile <- plnorm(total_row$actual, meanlog = mean_log, sdlog = sd_log)
-    tibble::tibble(mack_estimate = list(mack_estimate), 
-                   summary = list(summary_tbl),
-                   percentile = percentile)
-}
+```{r}
 
-calc_mack_estimates(dplyr::filter(comauto, GRCODE == 266))
+pp_plot_data <- select(results_to_test, percentile) %>% 
+    arrange(percentile) %>%
+    mutate(exp_percentile = row_number() / (n() + 1), unifdist = row_number() / n ())
+           
+ggplot(pp_plot_data, aes(x = exp_percentile, y = percentile)) +
+    geom_point() + 
+    geom_abline(slope = 1, intercept = 0, color = "blue") +
+    geom_abline(slope = 1, intercept = 136 / sqrt(50) * 0.01, color = "blue") +
+    geom_abline(slope = 1, intercept = -136 / sqrt(50) * 0.01, color = "blue")
+```
+
+Kolmogorov–Smirnov (K–S) Test
+
+```{r}
+ks.test(pp_plot_data$percentile, "punif")
 ```
 

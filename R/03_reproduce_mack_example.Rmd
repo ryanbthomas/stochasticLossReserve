@@ -17,13 +17,12 @@ inc_loss <- readRDS(glue::glue("{here::here()}/cache/ill_incloss.rds"))
 # ay + lag <= 1998 (ay run from 1988 to 1997 with 10 years of lags)
 
 known_loss <- inc_loss %>%
-    mutate(ay = as.numeric(ay)) %>%
-    filter(ay + lag <= 1998)
+        filter(as.numeric(ay) + lag <= 1998)
 
 
 known_loss_triangle <- as.triangle(known_loss,
-                                   origin = "lag", 
-                                   dev = "ay", 
+                                   origin = "ay", 
+                                   dev = "lag", 
                                    value = "vals")
 
 known_loss_triangle
@@ -51,16 +50,15 @@ results_tbl <- tibble::tibble(
 )
 
 final_vals <- filter(inc_loss, lag == 10) %>%
-    mutate(ay = as.numeric(ay)) %>%
     select(ay, vals)
 
  
 
 table4 <- known_loss %>% 
-    filter(ay + lag == 1998) %>%
+    filter(as.numeric(ay) + lag == 1998) %>%
     inner_join(results_tbl, by = "lag") %>%
     inner_join(final_vals, by = "ay") %>%
-    mutate(mack_est = vals.x * devfactor, cv = sd / mack_est, ay = as.character(ay)) %>%
+    mutate(mack_est = vals.x * devfactor, cv = sd / mack_est) %>%
     select(ay, mack_est, sd, cv, actual = vals.y) %>%
     bind_rows(tibble(ay = "total", 
                      mack_est = sum(.$mack_est), 
@@ -85,11 +83,5 @@ table4
 
 And the percentile of the total row assuming lognormal as G.M. does is `r sprintf("%2.1f%%", plnorm(total_row$actual, meanlog = mean_log, sdlog = sd_log) * 100)`
 
-An Idea.
 
-What happens when I use the broom package. An Error.
-
-```{r}
-mack_estimate %>% broom::tidy()
-```
 
