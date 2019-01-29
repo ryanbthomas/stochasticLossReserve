@@ -52,7 +52,11 @@ calc_mack_estimates <- function(x) {
 split_triangle <- function(x) {
     #following script example from Meyers, I'm backing out BulkLoss and making sure
     # values are positive
-    x <- dplyr::mutate(x, incloss = pmax(IncurLoss_C - BulkLoss_C, 1)) %>%
+    loss_cols <- names(x)[str_detect(names(x), pattern = "(IncurLoss|BulkLoss)")]
+    
+    x <- x %>% 
+        dplyr::mutate(incloss = pmap_dbl(.l = dplyr::select_at(., .vars = loss_cols), 
+                                         .f = pmax(1, ..1 - ..2))) %>%
         dplyr::select(ay = AccidentYear, 
                       lag = DevelopmentLag, 
                       incloss)

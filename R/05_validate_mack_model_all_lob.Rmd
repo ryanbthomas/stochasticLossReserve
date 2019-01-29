@@ -1,0 +1,51 @@
+---
+title: "All LOB Mack Validation"
+output: html_notebook
+---
+
+```{r}
+suppressPackageStartupMessages({
+    library(tidyverse)
+    library(fs)
+})
+
+cache_path <- fs::path(here::here(), "cache")
+selected_groups <- readRDS(file =  fs::path(cache_path, "selected_groups.rds"))
+lobs <- selected_groups %>% 
+    distinct(lob) %>%
+    pull()
+    
+collapsed_lobs <-str_c(lobs, collapse = "|")
+
+lob_file_pattern <- glue::glue("({collapsed_lobs}).*?csv$")    
+
+lob_files <- list.files(cache_path, pattern = lob_file_pattern) 
+all_lob <-  map(fs::path(cache_path, lob_files), readr::read_csv) %>%
+    setNames(str_extract(lob_files, pattern = "^[^\\_]*"))
+
+filter_data <- function(name) {
+    grcodes <- dplyr::filter(selected_groups, lob == name) %>%
+        pull(grcode)
+    
+    dplyr::filter(all_lob[[name]], GRCODE %in% grcodes) 
+}
+
+selected_data <-map(lobs, filter_data) %>%
+    setNames(lobs)
+
+```
+
+```{r}
+path_to_utils <- glue::glue("{here::here()}/R/00_utils.R")
+source(path_to_utils)
+
+mack_est <- function(x) {
+    split(x, x$GRCODE) %>%
+        purrr:::map(purrr::safely(calc_mack_estimates))
+}
+
+mack_est_all_lob <- map(selected_data, mack_est)
+
+check_work <- map_dbl(mack_est_all_lob, ~ map_dbl(.x$error, !is.null))
+```
+

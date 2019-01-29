@@ -28,9 +28,9 @@ select_grcode <- c("353 13420 353 13641 86 13528 620 14370",
 
 selected_groups <- select_grcode %>% 
     str_split(pattern = " ") %>%
-    map_dfr( ~tibble(commauto = .x[1:2], 
-                     persauto = .x[3:4], 
-                     wc = .x[5:6], 
+    map_dfr( ~tibble(comauto = .x[1:2], 
+                     ppauto = .x[3:4], 
+                     wkcomp = .x[5:6], 
                      othliab = .x[7:8])
     ) %>%
     gather(key = lob, value = grcode) %>%
